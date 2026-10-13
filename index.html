@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rallo Job Tracker</title>
+<meta name="description" content="Track job applications, follow-ups, interviews and coffee chats.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@400;500;600&display=swap">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#FDF8F5;--surface:#FFFFFF;--surface-2:#FDE8EC;--ink:#2A1520;--muted:#86596A;
+  --accent:#B94060;--accent-hover:#8B3252;--accent-ink:#FFFFFF;--accent-soft:#F9D3DC;
+  --border:#F0C8D0;--ok:#2F7D5B;--ok-soft:#DDF1E7;--warn:#9A6212;--warn-soft:#FBEBD0;
+  --bad:#B23A3A;--bad-soft:#F7DCDC;--neutral-soft:#EFE6E9;
+  --serif:'Cormorant Garamond',Georgia,serif;--sans:'Inter',system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#1A0F14;--surface:#24161C;--surface-2:#2F1C25;--ink:#F6E9EE;--muted:#C7A3B1;
+    --accent:#E8899A;--accent-hover:#F3A9B6;--accent-ink:#2A1520;--accent-soft:#4A2533;
+    --border:#43293A;--ok:#7BD6A8;--ok-soft:#1E3A2E;--warn:#EBBE6C;--warn-soft:#3D2E15;
+    --bad:#F29A9A;--bad-soft:#442222;--neutral-soft:#33242B;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1A0F14;--surface:#24161C;--surface-2:#2F1C25;--ink:#F6E9EE;--muted:#C7A3B1;
+  --accent:#E8899A;--accent-hover:#F3A9B6;--accent-ink:#2A1520;--accent-soft:#4A2533;
+  --border:#43293A;--ok:#7BD6A8;--ok-soft:#1E3A2E;--warn:#EBBE6C;--warn-soft:#3D2E15;
+  --bad:#F29A9A;--bad-soft:#442222;--neutral-soft:#33242B;color-scheme:dark;
+}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh}
+a{color:var(--accent)}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+
+/* header */
+header{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;height:60px}
+.brand{font-family:var(--serif);font-size:22px;letter-spacing:.18em;text-transform:uppercase;text-decoration:none;color:var(--ink);white-space:nowrap}
+.brand em{color:var(--accent);font-style:italic;letter-spacing:.06em;text-transform:none}
+.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding-bottom:10px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:1px solid transparent;background:none;padding:7px 14px;border-radius:999px;cursor:pointer;color:var(--muted);font-size:13px;font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{background:var(--surface);border-color:var(--border);color:var(--ink)}
+.pill{background:var(--accent);color:var(--accent-ink);border-radius:999px;font-size:11px;padding:0 7px;line-height:18px;font-weight:600}
+
+/* generic */
+main{padding:28px 0 80px}
+h1{font-family:var(--serif);font-weight:500;font-size:34px;line-height:1.1;margin-bottom:4px}
+h1 em{color:var(--accent)}
+h2{font-family:var(--serif);font-weight:500;font-size:24px;margin:30px 0 12px;display:flex;align-items:baseline;gap:10px}
+h2 small{font-family:var(--sans);font-size:12px;color:var(--muted);font-weight:400}
+.sub{color:var(--muted);margin-bottom:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+.grid2{display:grid;grid-template-columns:1.1fr 1fr;gap:16px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);background:var(--surface);color:var(--ink);padding:7px 13px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:500;text-decoration:none;white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:var(--accent-ink)}
+.btn.sm{padding:4px 10px;font-size:12px;border-radius:7px}
+.btn.danger{color:var(--bad)}
+.btn.danger:hover{border-color:var(--bad)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.muted{color:var(--muted)}
+.empty{color:var(--muted);text-align:center;padding:28px 12px;border:1px dashed var(--border);border-radius:14px;font-size:13px}
+.badge{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:999px;background:var(--neutral-soft);color:var(--ink);white-space:nowrap}
+.b-active{background:var(--accent-soft)}
+.b-progress{background:var(--warn-soft);color:var(--warn)}
+.b-ok{background:var(--ok-soft);color:var(--ok)}
+.b-bad{background:var(--bad-soft);color:var(--bad)}
+.b-closed{background:var(--neutral-soft);color:var(--muted)}
+.b-nu{background:var(--surface-2);color:var(--accent);border:1px solid var(--border)}
+input[type=text],input[type=email],input[type=tel],input[type=url],input[type=date],input[type=datetime-local],input[type=number],input[type=search],select,textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:14px;min-width:0}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* today */
+.goal{display:flex;gap:22px;align-items:center}
+.goal-n{font-family:var(--serif);font-variant-numeric:lining-nums;font-size:64px;line-height:.9;font-weight:500}
+.goal-n span{font-size:28px;color:var(--muted)}
+.bar{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin:10px 0 6px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .4s}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:14px}
+.day{text-align:center;font-size:11px;color:var(--muted)}
+.day b{display:block;margin-top:3px;height:30px;line-height:30px;border-radius:8px;background:var(--surface-2);color:var(--ink);font-size:13px}
+.day.met b{background:var(--accent);color:var(--accent-ink)}
+.day.today{color:var(--ink);font-weight:600}
+.quick{display:grid;grid-template-columns:1fr 1fr 1.05fr auto;gap:8px;margin-top:14px}
+.item{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border)}
+.item:first-child{border-top:none;padding-top:2px}
+.item .t{font-weight:600}
+.item .s{color:var(--muted);font-size:13px}
+.item .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.kind{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.over{color:var(--bad);font-weight:500}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-family:var(--serif);font-variant-numeric:lining-nums;font-size:30px;font-weight:500;line-height:1.1}
+.stat span{font-size:12px;color:var(--muted)}
+
+/* lists */
+.toolbar{display:grid;grid-template-columns:1fr 170px auto;gap:8px;margin-bottom:12px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.chip{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:4px 11px;font-size:12px;cursor:pointer;color:var(--muted)}
+.chip b{color:var(--ink);font-weight:600;margin-left:3px}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip[aria-pressed="true"] b{color:var(--accent-ink)}
+.list{display:flex;flex-direction:column;gap:10px}
+.entry{display:grid;grid-template-columns:1fr auto;gap:10px 16px;align-items:center;cursor:pointer}
+.entry:hover{border-color:var(--accent)}
+.entry .co{font-family:var(--serif);font-size:21px;font-weight:500;line-height:1.15}
+.entry .meta{display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center;color:var(--muted);font-size:12px;margin-top:4px}
+.entry .side{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.entry select{width:auto;padding:4px 8px;font-size:12px}
+.cols{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:start}
+.col h3{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between}
+.col .list{gap:8px}
+.col .entry{grid-template-columns:1fr;padding:12px 14px}
+.col .entry .co{font-size:18px}
+
+/* settings */
+.form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+.fld{display:flex;flex-direction:column;gap:5px}
+.fld.full{grid-column:1/-1}
+.fld label{font-size:12px;font-weight:500;color:var(--muted)}
+.fld .hint{font-size:11px;color:var(--muted)}
+.check{flex-direction:row;align-items:center;gap:8px}
+.check input{width:16px;height:16px;accent-color:var(--accent)}
+.check label{color:var(--ink);font-size:13px}
+
+/* dialog */
+dialog{border:1px solid var(--border);border-radius:16px;background:var(--bg);color:var(--ink);width:min(680px,calc(100vw - 24px));max-height:calc(100vh - 32px);padding:0;margin:auto}
+dialog::backdrop{background:rgba(42,21,32,.45)}
+.dlg-h{display:flex;justify-content:space-between;align-items:center;padding:18px 22px 6px}
+.dlg-h h3{font-family:var(--serif);font-size:26px;font-weight:500}
+.dlg-b{padding:10px 22px 18px}
+.dlg-f{display:flex;justify-content:space-between;gap:8px;padding:14px 22px;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--bg)}
+.x{background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);line-height:1;padding:4px 8px}
+.hist{margin-top:18px;border-top:1px solid var(--border);padding-top:12px}
+.hist h4{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.hist li{list-style:none;font-size:13px;padding:3px 0;display:flex;gap:10px}
+.hist li span{color:var(--muted);min-width:56px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:13px;opacity:0;transition:all .25s;pointer-events:none;z-index:100;max-width:calc(100vw - 32px)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.warnbar{background:var(--warn-soft);color:var(--warn);padding:10px 14px;border-radius:10px;margin-bottom:16px;font-size:13px}
+
+@media (max-width:820px){
+  .grid2,.cols{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:600px){
+  .wrap{padding:0 16px}
+  h1{font-size:28px}
+  .quick{grid-template-columns:1fr 1fr}
+  .quick .btn{grid-column:1/-1}
+  .toolbar{grid-template-columns:1fr 1fr}
+  .toolbar input{grid-column:1/-1}
+  .form{grid-template-columns:1fr}
+  .entry{grid-template-columns:1fr}
+  .entry .side{flex-direction:row;align-items:center;justify-content:space-between}
+  .item{flex-direction:column}
+  .item .acts{justify-content:flex-start}
+  .goal-n{font-size:52px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <a class="brand" href="index.html">Rallo <em>Jobs</em></a>
+      <button class="btn primary sm" data-act="new-job">+ Application</button>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<dialog id="dlg"></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ---------- constants & storage ---------- */
+const KEY = 'rallo-jobs-v1', TAB_KEY = 'rallo-jobs-tab';
+const STATUSES = ['Saved','Applied','Followed up','Screening','Interviewing','Offer','Accepted','Rejected','Ghosted','Withdrawn'];
+const CLOSED = ['Accepted','Rejected','Ghosted','Withdrawn'];
+const WAITING = ['Applied','Followed up'];
+const STATUS_CLASS = {Saved:'', Applied:'b-active','Followed up':'b-active', Screening:'b-progress', Interviewing:'b-progress', Offer:'b-ok', Accepted:'b-ok', Rejected:'b-bad', Ghosted:'b-closed', Withdrawn:'b-closed'};
+const CHAT_STATUSES = ['To reach out','Requested','Scheduled','Done'];
+const DEFAULTS = {settings:{name:'', school:'Northeastern University', goal:3, followDays:7, staleDays:30, notify:false}, jobs:[], interviews:[], chats:[]};
+
+let storageOK = true;
+let S = load();
+let tab = (()=>{ try { return localStorage.getItem(TAB_KEY) || 'today'; } catch(e){ return 'today'; } })();
+const F = {q:'', channel:'all', status:'active'};
+
+function load(){
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) { const d = JSON.parse(raw); return {...structuredClone(DEFAULTS), ...d, settings:{...DEFAULTS.settings, ...(d.settings||{})}}; }
+  } catch(e) { storageOK = false; }
+  return structuredClone(DEFAULTS);
+}
+function save(){
+  try { localStorage.setItem(KEY, JSON.stringify(S)); storageOK = true; }
+  catch(e) { storageOK = false; toast('Could not save in this browser — export a backup in Settings'); }
+  render();
+}
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today = () => ymd(new Date());
+const parseD = s => new Date(s.length <= 10 ? s + 'T00:00' : s);
+const addDays = (s, n) => { const d = parseD(s.slice(0,10)); d.setDate(d.getDate()+n); return ymd(d); };
+const dayDiff = s => Math.round((parseD(s.slice(0,10)) - parseD(today())) / 864e5);
+const fmtD = s => s ? parseD(s).toLocaleDateString(undefined,{month:'short',day:'numeric'}) : '';
+const fmtDT = s => s ? parseD(s).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+const rel = s => { const n = dayDiff(s); return n===0?'today':n===1?'tomorrow':n===-1?'yesterday':n>0?`in ${n} days`:`${-n} days ago`; };
+const first = name => (name||'').trim().split(/\s+/)[0] || 'there';
+const isNU = j => j.channel === 'NUworks';
+const job = id => S.jobs.find(j => j.id === id);
+const jobLabel = j => j ? `${j.company} — ${j.role}` : '';
+const myName = () => S.settings.name || '[Your name]';
+const badge = (txt, cls='') => `<span class="badge ${cls}">${esc(txt)}</span>`;
+
+function mailto(to, subject, body){
+  return `mailto:${encodeURIComponent((to||'').trim()).replace(/%40/g,'@')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), 2400);
+}
+
+/* ---------- email templates ---------- */
+const T = {
+  followUp: j => mailto(j.contactEmail, `Following up — ${j.role} application`,
+`Hi ${first(j.contactName)},
+
+I hope you're doing well! I applied for the ${j.role} position at ${j.company}${j.appliedDate ? ' on ' + fmtD(j.appliedDate) : ''} and wanted to follow up on the status of my application. I'm still very excited about the opportunity and happy to share anything else that would be helpful.
+
+Thank you for your time,
+${myName()}`),
+  ivThanks: iv => { const j = job(iv.jobId) || {}; return mailto(iv.email, `Thank you — ${j.role || ''} interview`,
+`Hi ${first(iv.interviewer)},
+
+Thank you so much for taking the time to speak with me about the ${j.role || ''} role at ${j.company || 'your team'}. I really enjoyed learning about [something specific you discussed], and our conversation made me even more excited about the opportunity.
+
+Please let me know if there's anything else I can provide.
+
+Best,
+${myName()}`); },
+  chatAsk: c => mailto(c.email, `${S.settings.school} student — would love to learn about your work at ${c.company}`,
+`Hi ${first(c.person)},
+
+My name is ${myName()}, and I'm a student at ${S.settings.school}. I came across your profile and would love to hear about your experience${c.title ? ' as ' + c.title : ''} at ${c.company}. Would you be open to a quick 15–20 minute coffee chat in the next couple of weeks?
+
+Thank you so much,
+${myName()}`),
+  chatThanks: c => mailto(c.email, `Thank you for chatting!`,
+`Hi ${first(c.person)},
+
+Thank you again for taking the time to chat with me! I really appreciated your insight on [something specific], and it was so helpful hearing about your path at ${c.company}. I'd love to stay in touch.
+
+Best,
+${myName()}`),
+  chatNudge: c => mailto(c.email, `Following up — coffee chat`,
+`Hi ${first(c.person)},
+
+Just floating this back to the top of your inbox — I'd still love to hear about your experience at ${c.company} if you have 15 minutes in the coming weeks. Totally understand if things are busy!
+
+Best,
+${myName()}`)
+};
+
+/* ---------- status rules ---------- */
+function applyStatus(j, next, prev){
+  if (next === prev) return;
+  (j.history ||= []).push({d: today(), t: prev ? `${prev} → ${next}` : `Added as ${next}`});
+  if (next === 'Applied' && !j.appliedDate) j.appliedDate = today();
+  if (CLOSED.includes(next)) j.followUpDate = '';
+  else if (WAITING.includes(next) && !j.followUpDate) j.followUpDate = addDays(next === 'Applied' ? (j.appliedDate || today()) : today(), +S.settings.followDays);
+}
+
+/* ---------- derived data ---------- */
+function countsByDate(){ const c = {}; S.jobs.forEach(j => { if (j.appliedDate) c[j.appliedDate] = (c[j.appliedDate]||0) + 1; }); return c; }
+function streak(){
+  const goal = Math.max(1, +S.settings.goal || 1), c = countsByDate();
+  let d = today(), n = 0;
+  if ((c[d]||0) < goal) d = addDays(d, -1);
+  while ((c[d]||0) >= goal) { n++; d = addDays(d, -1); }
+  return n;
+}
+function dueItems(){
+  const t = today(), out = [];
+  S.jobs.forEach(j => {
+    if (CLOSED.includes(j.status) || j.status === 'Saved') return;
+    if (j.followUpDate && j.followUpDate <= t) {
+      const age = j.appliedDate ? -dayDiff(j.appliedDate) : 0;
+      const stale = WAITING.includes(j.status) && age >= +S.settings.staleDays;
+      out.push({sort: j.followUpDate, kind: 'Follow up', title: jobLabel(j),
+        sub: `${j.status}${j.appliedDate ? ' · applied ' + rel(j.appliedDate) : ''}${j.contactName ? ' · ' + j.contactName : ''} · <span class="${j.followUpDate < t ? 'over' : ''}">due ${rel(j.followUpDate)}</span>${stale ? ' · no reply in ' + age + ' days' : ''}`,
+        acts: `<a class="btn sm" href="${T.followUp(j)}">Email</a>${j.contactPhone ? `<a class="btn sm" href="tel:${esc(j.contactPhone)}">Call</a>` : ''}<button class="btn sm primary" data-act="job-done" data-id="${j.id}">Followed up ✓</button><button class="btn sm" data-act="job-snooze" data-id="${j.id}">+3 days</button>${stale ? `<button class="btn sm" data-act="job-ghost" data-id="${j.id}">Mark ghosted</button>` : ''}`});
+    }
+  });
+  S.interviews.forEach(iv => {
+    if (!iv.date || iv.thankYouSent || parseD(iv.date) > new Date() || dayDiff(iv.date) < -10) return;
+    out.push({sort: iv.date.slice(0,10), kind: 'Thank-you note', title: jobLabel(job(iv.jobId)) || 'Interview',
+      sub: `${iv.round || 'Interview'}${iv.interviewer ? ' with ' + iv.interviewer : ''} · ${rel(iv.date)} — send within 24 hours`,
+      acts: `<a class="btn sm" href="${T.ivThanks(iv)}">Email thank-you</a><button class="btn sm primary" data-act="iv-sent" data-id="${iv.id}">Sent ✓</button>`});
+  });
+  S.chats.forEach(c => {
+    const who = `${c.person}${c.company ? ' · ' + c.company : ''}`;
+    if (c.status === 'To reach out') {
+      out.push({sort: c.followUpDate || '0', kind: 'Reach out', title: who, sub: `${c.how || 'Networking'}${c.title ? ' · ' + c.title : ''}`,
+        acts: `<a class="btn sm" href="${T.chatAsk(c)}">Email ask</a>${c.linkedin ? `<a class="btn sm" href="${esc(c.linkedin)}" target="_blank" rel="noopener">LinkedIn</a>` : ''}<button class="btn sm primary" data-act="chat-requested" data-id="${c.id}">Sent ✓</button>`});
+    } else if (c.status === 'Done' && !c.thankYouSent) {
+      out.push({sort: (c.date||'').slice(0,10), kind: 'Thank-you note', title: who, sub: `Coffee chat ${c.date ? rel(c.date) : ''}`,
+        acts: `<a class="btn sm" href="${T.chatThanks(c)}">Email thank-you</a><button class="btn sm primary" data-act="chat-sent" data-id="${c.id}">Sent ✓</button>`});
+    } else if (c.status === 'Scheduled' && c.date && parseD(c.date) < new Date()) {
+      out.push({sort: c.date.slice(0,10), kind: 'How did it go?', title: who, sub: `Chat was ${rel(c.date)} — mark it done and add notes`,
+        acts: `<button class="btn sm primary" data-act="chat-done" data-id="${c.id}">Mark done</button><button class="btn sm" data-act="edit-chat" data-id="${c.id}">Add notes</button>`});
+    } else if (c.followUpDate && c.followUpDate <= today() && c.status !== 'Done') {
+      out.push({sort: c.followUpDate, kind: 'Follow up', title: who, sub: `${c.status} · <span class="${c.followUpDate < t ? 'over' : ''}">due ${rel(c.followUpDate)}</span>`,
+        acts: `<a class="btn sm" href="${T.chatNudge(c)}">Email nudge</a><button class="btn sm primary" data-act="chat-nudged" data-id="${c.id}">Followed up ✓</button><button class="btn sm" data-act="edit-chat" data-id="${c.id}">Schedule</button>`});
+    }
+  });
+  return out.sort((a,b) => a.sort.localeCompare(b.sort));
+}
+function upcoming(){
+  const now = new Date(), horizon = addDays(today(), 14), out = [];
+  S.interviews.forEach(iv => { if (iv.date && parseD(iv.date) >= now && iv.date.slice(0,10) <= horizon) out.push({date: iv.date, kind: 'Interview', title: jobLabel(job(iv.jobId)), sub: [iv.round, iv.format, iv.interviewer].filter(Boolean).join(' · '), act: 'edit-iv', id: iv.id}); });
+  S.chats.forEach(c => { if (c.status === 'Scheduled' && c.date && parseD(c.date) >= now && c.date.slice(0,10) <= horizon) out.push({date: c.date, kind: 'Coffee chat', title: `${c.person}${c.company ? ' · ' + c.company : ''}`, sub: c.title || '', act: 'edit-chat', id: c.id}); });
+  return out.sort((a,b) => a.date.localeCompare(b.date));
+}
+
+/* ---------- render ---------- */
+function render(){
+  const due = dueItems().length;
+  const tabs = [['today','Today', due], ['jobs','Applications', S.jobs.filter(j => !CLOSED.includes(j.status)).length], ['interviews','Interviews'], ['chats','Coffee chats'], ['settings','Settings']];
+  $('#tabs').innerHTML = tabs.map(([k,l,n]) => `<button class="tab" role="tab" aria-selected="${tab===k}" data-tab="${k}">${l}${n ? `<span class="pill">${n}</span>` : ''}</button>`).join('');
+  const warn = storageOK ? '' : `<div class="warnbar">This browser isn't saving data (private window or blocked storage). Use Settings → Export backup before closing.</div>`;
+  $('#main').innerHTML = warn + ({today: viewToday, jobs: viewJobs, interviews: viewInterviews, chats: viewChats, settings: viewSettings}[tab] || viewToday)();
+  if (tab === 'jobs') renderJobList();
+}
+
+function viewToday(){
+  const t = today(), goal = Math.max(1, +S.settings.goal || 1), c = countsByDate();
+  const n = c[t] || 0, st = streak(), due = dueItems(), up = upcoming();
+  const days = Array.from({length:7}, (_,i) => addDays(t, i-6));
+  const active = S.jobs.filter(j => !CLOSED.includes(j.status) && j.status !== 'Saved');
+  const applied = S.jobs.filter(j => j.status !== 'Saved');
+  const responded = applied.filter(j => !['Applied','Followed up','Ghosted'].includes(j.status)).length;
+  const week = S.jobs.filter(j => j.appliedDate && dayDiff(j.appliedDate) > -7).length;
+  const hello = S.settings.name ? `, ${esc(first(S.settings.name))}` : '';
+  return `
+  <h1>Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}${hello}<em>.</em></h1>
+  <p class="sub">${new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})} · ${due.length ? `${due.length} thing${due.length>1?'s':''} to do` : 'nothing due — go apply!'}</p>
+  <div class="grid2">
+    <div class="card">
+      <div class="goal">
+        <div class="goal-n">${n}<span>/${goal}</span></div>
+        <div style="flex:1">
+          <div style="font-weight:600">${n >= goal ? 'Daily goal met ✦' : `${goal-n} more application${goal-n>1?'s':''} today`}</div>
+          <div class="bar"><i style="width:${Math.min(100, n/goal*100)}%"></i></div>
+          <div class="muted" style="font-size:12px">${st ? `${st}-day streak` : 'Start a streak today'} · ${week} this week</div>
+        </div>
+      </div>
+      <div class="week">${days.map(d => `<div class="day ${(c[d]||0) >= goal ? 'met' : ''} ${d===t ? 'today' : ''}">${parseD(d).toLocaleDateString(undefined,{weekday:'narrow'})}<b>${c[d]||0}</b></div>`).join('')}</div>
+      <form class="quick" id="quick">
+        <input type="text" name="company" placeholder="Company" required aria-label="Company">
+        <input type="text" name="role" placeholder="Role" required aria-label="Role">
+        <select name="channel" aria-label="Where"><option>Outside NU</option><option>NUworks</option></select>
+        <button class="btn primary">Log applied</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">Coming up <small>next 14 days</small></h2>
+      ${up.length ? up.map(u => `<div class="item"><div><div class="kind">${u.kind}</div><div class="t">${esc(u.title)}</div><div class="s">${fmtDT(u.date)}${u.sub ? ' · ' + esc(u.sub) : ''}</div></div><div class="acts"><button class="btn sm" data-act="${u.act}" data-id="${u.id}">Open</button></div></div>`).join('') : `<p class="muted">No interviews or coffee chats scheduled.</p>`}
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><b>${applied.length}</b><span>applied total</span></div>
+    <div class="stat"><b>${active.length}</b><span>still in play</span></div>
+    <div class="stat"><b>${applied.length ? Math.round(responded/applied.length*100) : 0}%</b><span>response rate</span></div>
+    <div class="stat"><b>${S.jobs.filter(isNU).length} / ${S.jobs.filter(j => !isNU(j)).length}</b><span>NUworks / outside</span></div>
+  </div>
+  <h2>To do <small>follow-ups, thank-yous, outreach</small></h2>
+  <div class="card">${due.length ? due.map(d => `<div class="item"><div><div class="kind">${d.kind}</div><div class="t">${esc(d.title)}</div><div class="s">${d.sub}</div></div><div class="acts">${d.acts}</div></div>`).join('') : `<p class="muted">You're all caught up. Follow-up reminders appear here automatically ${S.settings.followDays} days after you apply.</p>`}</div>
+  ${!S.jobs.length && !S.chats.length ? `<p class="muted" style="margin-top:16px">New here? <button class="btn sm" data-act="sample">Load sample data</button> to see how it works (you can clear it in Settings).</p>` : ''}`;
+}
+
+function viewJobs(){
+  return `
+  <h1>Applications</h1>
+  <p class="sub">Every job you've saved or applied to — NUworks and outside.</p>
+  <div class="toolbar">
+    <input type="search" id="q" placeholder="Search company, role, location, notes…" value="${esc(F.q)}" aria-label="Search">
+    <select id="fchannel" aria-label="Filter by where">
+      <option value="all" ${F.channel==='all'?'selected':''}>NUworks + outside</option>
+      <option value="NUworks" ${F.channel==='NUworks'?'selected':''}>NUworks only</option>
+      <option value="Outside NU" ${F.channel==='Outside NU'?'selected':''}>Outside NU only</option>
+    </select>
+    <button class="btn primary" data-act="new-job">+ Add</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="list" id="jobList"></div>`;
+}
+function renderJobList(){
+  const q = F.q.toLowerCase();
+  const base = S.jobs.filter(j => (F.channel === 'all' || j.channel === F.channel) && (!q || [j.company,j.role,j.location,j.notes,j.contactName,j.source,j.type].join(' ').toLowerCase().includes(q)));
+  const count = s => s === 'all' ? base.length : s === 'active' ? base.filter(j => !CLOSED.includes(j.status)).length : base.filter(j => j.status === s).length;
+  const chips = ['active','all', ...STATUSES].filter(s => s === 'active' || s === 'all' || count(s));
+  $('#chips').innerHTML = chips.map(s => `<button class="chip" aria-pressed="${F.status===s}" data-chip="${esc(s)}">${s==='active'?'Active':s==='all'?'All':esc(s)}<b>${count(s)}</b></button>`).join('');
+  const list = base.filter(j => F.status === 'all' || (F.status === 'active' ? !CLOSED.includes(j.status) : j.status === F.status))
+    .sort((a,b) => (b.appliedDate||b.created||'').localeCompare(a.appliedDate||a.created||''));
+  $('#jobList').innerHTML = list.length ? list.map(j => {
+    const ivs = S.interviews.filter(i => i.jobId === j.id).length;
+    return `<div class="card entry" data-act="edit-job" data-id="${j.id}">
+      <div>
+        <div class="co">${esc(j.company)}</div>
+        <div>${esc(j.role)}</div>
+        <div class="meta">
+          ${badge(j.channel === 'NUworks' ? 'NUworks' : 'Outside NU', j.channel === 'NUworks' ? 'b-nu' : '')}
+          ${j.type ? badge(j.type) : ''}
+          ${j.location ? `<span>${esc(j.location)}</span>` : ''}
+          ${j.appliedDate ? `<span>Applied ${fmtD(j.appliedDate)}</span>` : ''}
+          ${j.followUpDate && !CLOSED.includes(j.status) ? `<span class="${j.followUpDate < today() ? 'over' : ''}">Follow up ${rel(j.followUpDate)}</span>` : ''}
+          ${ivs ? `<span>${ivs} interview${ivs>1?'s':''}</span>` : ''}
+          ${j.url ? `<a href="${esc(j.url)}" target="_blank" rel="noopener" data-stop>Posting ↗</a>` : ''}
+        </div>
+      </div>
+      <div class="side">
+        <select data-status-for="${j.id}" aria-label="Status for ${esc(j.company)}" data-stop>${STATUSES.map(s => `<option ${s===j.status?'selected':''}>${s}</option>`).join('')}</select>
+        ${badge(j.status, STATUS_CLASS[j.status])}
+      </div>
+    </div>`; }).join('') : `<div class="empty">${S.jobs.length ? 'No applications match these filters.' : 'No applications yet. Add the first one — or use “Log applied” on the Today tab.'}</div>`;
+}
+
+function viewInterviews(){
+  const now = new Date();
+  const sorted = [...S.interviews].sort((a,b) => (a.date||'').localeCompare(b.date||''));
+  const up = sorted.filter(i => !i.date || parseD(i.date) >= now), past = sorted.filter(i => i.date && parseD(i.date) < now).reverse();
+  const card = iv => { const j = job(iv.jobId);
+    return `<div class="card entry" data-act="edit-iv" data-id="${iv.id}">
+      <div>
+        <div class="co">${esc(j ? j.company : 'Unlinked interview')}</div>
+        <div>${esc(j ? j.role : '')}</div>
+        <div class="meta">
+          <span>${iv.date ? fmtDT(iv.date) + ' · ' + rel(iv.date) : 'Date TBD'}</span>
+          ${iv.round ? badge(iv.round) : ''}${iv.format ? `<span>${esc(iv.format)}</span>` : ''}
+          ${iv.interviewer ? `<span>with ${esc(iv.interviewer)}</span>` : ''}
+          ${iv.link ? `<a href="${esc(iv.link)}" target="_blank" rel="noopener" data-stop>Join / location ↗</a>` : ''}
+        </div>
+        ${iv.prep ? `<div class="muted" style="font-size:13px;margin-top:6px;white-space:pre-line">${esc(iv.prep.slice(0,180))}${iv.prep.length>180?'…':''}</div>` : ''}
+      </div>
+      <div class="side">
+        ${badge(iv.outcome || 'Pending', iv.outcome === 'Moved forward' ? 'b-ok' : iv.outcome === 'Rejected' ? 'b-bad' : '')}
+        ${iv.date && parseD(iv.date) < now ? badge(iv.thankYouSent ? 'Thank-you sent' : 'Thank-you not sent', iv.thankYouSent ? 'b-ok' : 'b-progress') : ''}
+      </div>
+    </div>`; };
+  return `
+  <div class="row" style="justify-content:space-between"><div><h1>Interviews</h1><p class="sub">Every round, with prep notes and thank-you tracking.</p></div><button class="btn primary" data-act="new-iv">+ Interview</button></div>
+  <h2>Upcoming <small>${up.length}</small></h2>
+  <div class="list">${up.length ? up.map(card).join('') : `<div class="empty">No upcoming interviews. When you land one, add it here — the application moves to “Interviewing” automatically.</div>`}</div>
+  <h2>Past <small>${past.length}</small></h2>
+  <div class="list">${past.length ? past.map(card).join('') : `<div class="empty">Past interviews will show up here.</div>`}</div>`;
+}
+
+function viewChats(){
+  const card = c => `<div class="card entry" data-act="edit-chat" data-id="${c.id}">
+    <div>
+      <div class="co">${esc(c.person)}</div>
+      <div>${esc([c.title, c.company].filter(Boolean).join(' · '))}</div>
+      <div class="meta">
+        ${c.how ? badge(c.how) : ''}
+        ${c.date ? `<span>${fmtDT(c.date)}</span>` : ''}
+        ${c.followUpDate && c.status !== 'Done' ? `<span class="${c.followUpDate < today() ? 'over' : ''}">Follow up ${rel(c.followUpDate)}</span>` : ''}
+        ${c.status === 'Done' ? badge(c.thankYouSent ? 'Thanked' : 'Send thank-you', c.thankYouSent ? 'b-ok' : 'b-progress') : ''}
+      </div>
+    </div></div>`;
+  return `
+  <div class="row" style="justify-content:space-between"><div><h1>Coffee chats</h1><p class="sub">People at the places you want to be — from first message to thank-you.</p></div><button class="btn primary" data-act="new-chat">+ Person</button></div>
+  <div class="cols">${CHAT_STATUSES.map(s => { const items = S.chats.filter(c => c.status === s).sort((a,b) => (a.date||a.followUpDate||'').localeCompare(b.date||b.followUpDate||''));
+    return `<div class="col"><h3>${s}<span>${items.length}</span></h3><div class="list">${items.length ? items.map(card).join('') : `<div class="empty">—</div>`}</div></div>`; }).join('')}</div>`;
+}
+
+function viewSettings(){
+  const s = S.settings;
+  return `
+  <h1>Settings</h1>
+  <p class="sub">Your data lives in this browser. Export a backup now and then — or to move to another device.</p>
+  <form class="card form" id="settings">
+    <div class="fld"><label for="s_name">Your name (used in email templates)</label><input type="text" id="s_name" name="name" value="${esc(s.name)}"></div>
+    <div class="fld"><label for="s_school">School</label><input type="text" id="s_school" name="school" value="${esc(s.school)}"></div>
+    <div class="fld"><label for="s_goal">Daily application goal</label><input type="number" min="1" max="50" id="s_goal" name="goal" value="${esc(s.goal)}"></div>
+    <div class="fld"><label for="s_fd">Follow up after (days)</label><input type="number" min="1" max="60" id="s_fd" name="followDays" value="${esc(s.followDays)}"></div>
+    <div class="fld"><label for="s_sd">Suggest “ghosted” after (days with no reply)</label><input type="number" min="7" max="120" id="s_sd" name="staleDays" value="${esc(s.staleDays)}"></div>
+    <div class="fld check" style="align-self:end"><input type="checkbox" id="s_notify" name="notify" ${s.notify?'checked':''}><label for="s_notify">Browser notification when I open this page and things are due</label></div>
+    <div class="fld full"><button class="btn primary" style="justify-self:start;width:max-content">Save settings</button></div>
+  </form>
+  <h2>Calendar reminders</h2>
+  <div class="card"><p class="muted" style="margin-bottom:10px">Download an .ics file with every follow-up date, interview and coffee chat (with alerts), then open it to add them to Google Calendar, Outlook or Apple Calendar. Re-download after you add new items.</p>
+    <button class="btn" data-act="ics">Download calendar file</button></div>
+  <h2>Backup</h2>
+  <div class="card row">
+    <button class="btn" data-act="export">Export backup (.json)</button>
+    <label class="btn" for="importFile">Import backup</label><input type="file" id="importFile" accept="application/json,.json" hidden>
+    <button class="btn" data-act="csv">Export applications (.csv)</button>
+    <span style="flex:1"></span>
+    <button class="btn danger" data-act="wipe">Delete all data</button>
+  </div>`;
+}
+
+/* ---------- modal forms ---------- */
+const jobOpts = () => [['','— none —'], ...S.jobs.map(j => [j.id, jobLabel(j)])];
+const FORMS = {
+  job: {title:'Application', list:'jobs', fields:[
+    {k:'company', label:'Company', req:1}, {k:'role', label:'Role / title', req:1},
+    {k:'channel', label:'Where did you apply?', type:'select', opts:['NUworks','Outside NU']},
+    {k:'source', label:'Found it via', type:'select', opts:['NUworks','LinkedIn','Handshake','Company website','Referral','Indeed','Career fair','Other']},
+    {k:'type', label:'Type', type:'select', opts:['Co-op','Internship','Full-time','Part-time','Other']},
+    {k:'status', label:'Status', type:'select', opts:STATUSES},
+    {k:'appliedDate', label:'Date applied', type:'date'},
+    {k:'followUpDate', label:'Next follow-up', type:'date', hint:'Blank = auto-set from your follow-up setting'},
+    {k:'location', label:'Location'}, {k:'salary', label:'Pay'},
+    {k:'url', label:'Posting link', type:'url', full:1},
+    {k:'contactName', label:'Contact / recruiter'}, {k:'contactEmail', label:'Contact email', type:'email'},
+    {k:'contactPhone', label:'Contact phone', type:'tel'},
+    {k:'notes', label:'Notes', type:'textarea', full:1}]},
+  iv: {title:'Interview', list:'interviews', fields:[
+    {k:'jobId', label:'Application', type:'select', opts:jobOpts, full:1},
+    {k:'date', label:'Date & time', type:'datetime-local'},
+    {k:'round', label:'Round', type:'select', opts:['Phone screen','Recruiter call','Technical','Behavioral','Case','Panel','Final','Other']},
+    {k:'format', label:'Format', type:'select', opts:['Video','Phone','In person']},
+    {k:'outcome', label:'Outcome', type:'select', opts:['Pending','Moved forward','Rejected']},
+    {k:'interviewer', label:'Interviewer(s)'}, {k:'email', label:'Interviewer email', type:'email'},
+    {k:'link', label:'Meeting link / address', full:1},
+    {k:'prep', label:'Prep notes — questions to expect, stories, questions to ask', type:'textarea', full:1},
+    {k:'thankYouSent', label:'Thank-you note sent', type:'checkbox'}]},
+  chat: {title:'Coffee chat', list:'chats', fields:[
+    {k:'person', label:'Name', req:1}, {k:'company', label:'Company'},
+    {k:'title', label:'Their role'}, {k:'how', label:'How you know them', type:'select', opts:['LinkedIn','Northeastern alum','Co-op connection','Referral / intro','Career fair','Event','Professor','Other']},
+    {k:'status', label:'Stage', type:'select', opts:CHAT_STATUSES},
+    {k:'date', label:'Chat date & time', type:'datetime-local'},
+    {k:'email', label:'Email', type:'email'}, {k:'linkedin', label:'LinkedIn URL', type:'url'},
+    {k:'followUpDate', label:'Follow-up date', type:'date', hint:'Auto-set when you mark an ask as sent'},
+    {k:'jobId', label:'Related application', type:'select', opts:jobOpts},
+    {k:'notes', label:'Notes — what you talked about, advice, intros offered', type:'textarea', full:1},
+    {k:'thankYouSent', label:'Thank-you note sent', type:'checkbox'}]}
+};
+const BLANK = {
+  job: () => ({channel:'Outside NU', source:'LinkedIn', type:'Co-op', status:'Applied', appliedDate:today(), history:[]}),
+  iv: () => ({round:'Phone screen', format:'Video', outcome:'Pending'}),
+  chat: () => ({how:'LinkedIn', status:'To reach out'})
+};
+
+function fieldHTML(f, v){
+  const id = 'f_' + f.k, cls = `fld${f.full ? ' full' : ''}`, lab = `<label for="${id}">${f.label}</label>`, hint = f.hint ? `<span class="hint">${f.hint}</span>` : '';
+  if (f.type === 'select') {
+    const opts = (typeof f.opts === 'function' ? f.opts() : f.opts).map(o => Array.isArray(o) ? o : [o,o]);
+    return `<div class="${cls}">${lab}<select id="${id}" name="${f.k}">${opts.map(([val,t]) => `<option value="${esc(val)}" ${val===(v??'')?'selected':''}>${esc(t)}</option>`).join('')}</select>${hint}</div>`;
+  }
+  if (f.type === 'textarea') return `<div class="${cls}">${lab}<textarea id="${id}" name="${f.k}" rows="4">${esc(v)}</textarea></div>`;
+  if (f.type === 'checkbox') return `<div class="fld check full"><input type="checkbox" id="${id}" name="${f.k}" ${v?'checked':''}><label for="${id}">${f.label}</label></div>`;
+  return `<div class="${cls}">${lab}<input type="${f.type||'text'}" id="${id}" name="${f.k}" value="${esc(v)}" ${f.req?'required':''}>${hint}</div>`;
+}
+
+function openForm(kind, id, preset = {}){
+  const def = FORMS[kind], existing = id && S[def.list].find(x => x.id === id);
+  const obj = existing ? {...existing} : {...BLANK[kind](), ...preset};
+  let extra = '';
+  if (kind === 'job' && existing) {
+    const ivs = S.interviews.filter(i => i.jobId === id), chats = S.chats.filter(c => c.jobId === id);
+    extra = `<div class="hist">
+      <div class="row" style="justify-content:space-between;margin-bottom:6px"><h4>Interviews & people</h4><span class="row"><button type="button" class="btn sm" data-act="new-iv" data-job="${id}">+ Interview</button><button type="button" class="btn sm" data-act="new-chat" data-job="${id}">+ Coffee chat</button></span></div>
+      ${ivs.map(i => `<li><span>${fmtD(i.date)||'TBD'}</span><a href="#" data-act="edit-iv" data-id="${i.id}">${esc(i.round||'Interview')}${i.interviewer?' with '+esc(i.interviewer):''}</a></li>`).join('')}
+      ${chats.map(c => `<li><span>${fmtD(c.date)||c.status}</span><a href="#" data-act="edit-chat" data-id="${c.id}">Coffee chat · ${esc(c.person)}</a></li>`).join('')}
+      ${!ivs.length && !chats.length ? '<p class="muted" style="font-size:13px">None yet.</p>' : ''}
+    </div>
+    ${(existing.history||[]).length ? `<div class="hist"><h4>Timeline</h4><ul>${[...existing.history].reverse().map(h => `<li><span>${fmtD(h.d)}</span>${esc(h.t)}</li>`).join('')}</ul></div>` : ''}`;
+  }
+  const dlg = $('#dlg');
+  dlg.innerHTML = `<form id="dform" method="dialog">
+    <div class="dlg-h"><h3>${existing ? '' : 'New '}${def.title.toLowerCase().replace(/^./, c => existing ? c.toUpperCase() : c)}</h3><button type="button" class="x" data-act="close" aria-label="Close">×</button></div>
+    <div class="dlg-b"><div class="form">${def.fields.map(f => fieldHTML(f, obj[f.k])).join('')}</div>${extra}</div>
+    <div class="dlg-f">${existing ? `<button type="button" class="btn danger" data-act="delete" data-kind="${kind}" data-id="${id}">Delete</button>` : '<span></span>'}
+      <span class="row"><button type="button" class="btn" data-act="close">Cancel</button><button class="btn primary">Save</button></span></div>
+  </form>`;
+  dlg.querySelector('#dform').addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    def.fields.forEach(f => { obj[f.k] = f.type === 'checkbox' ? fd.has(f.k) : (fd.get(f.k) || '').trim(); });
+    if (kind === 'job') {
+      if (!existing) { obj.id = uid(); obj.created = new Date().toISOString(); obj.history = []; }
+      applyStatus(obj, obj.status, existing ? existing.status : null);
+      if (WAITING.includes(obj.status) && !obj.followUpDate) obj.followUpDate = addDays(obj.appliedDate || today(), +S.settings.followDays);
+    }
+    if (kind === 'iv') {
+      const j = job(obj.jobId);
+      if (!existing && j) {
+        if (STATUSES.indexOf(j.status) < STATUSES.indexOf('Interviewing')) applyStatus(j, 'Interviewing', j.status);
+        (j.history ||= []).push({d: today(), t: `${obj.round} scheduled${obj.date ? ' for ' + fmtD(obj.date) : ''}`});
+      }
+      if (j && obj.outcome === 'Rejected' && (!existing || existing.outcome !== 'Rejected') && !CLOSED.includes(j.status)) applyStatus(j, 'Rejected', j.status);
+    }
+    if (kind === 'chat' && obj.status === 'Requested' && !obj.followUpDate) obj.followUpDate = addDays(today(), 5);
+    if (existing) Object.assign(existing, obj); else { obj.id ||= uid(); S[def.list].push(obj); }
+    dlg.close(); save(); toast('Saved');
+  });
+  if (!dlg.open) dlg.showModal();
+  dlg.querySelector('input,select')?.focus();
+}
+
+/* ---------- actions ---------- */
+const ACTIONS = {
+  'new-job': () => openForm('job'),
+  'new-iv': el => { if (!S.jobs.length) return toast('Add the application first, then its interview'); openForm('iv', null, el.dataset.job ? {jobId: el.dataset.job} : {}); },
+  'new-chat': el => openForm('chat', null, el.dataset.job ? {jobId: el.dataset.job, company: job(el.dataset.job)?.company || ''} : {}),
+  'edit-job': el => openForm('job', el.dataset.id),
+  'edit-iv': el => openForm('iv', el.dataset.id),
+  'edit-chat': el => openForm('chat', el.dataset.id),
+  'close': () => $('#dlg').close(),
+  'delete': el => {
+    const {kind, id} = el.dataset, list = FORMS[kind].list;
+    if (!confirm('Delete this ' + FORMS[kind].title.toLowerCase() + '?')) return;
+    S[list] = S[list].filter(x => x.id !== id);
+    if (kind === 'job') { S.interviews = S.interviews.filter(i => i.jobId !== id); S.chats.forEach(c => { if (c.jobId === id) c.jobId = ''; }); }
+    $('#dlg').close(); save(); toast('Deleted');
+  },
+  'job-done': el => { const j = job(el.dataset.id); j.history.push({d: today(), t: 'Followed up'}); if (j.status === 'Applied') { j.history.push({d: today(), t: 'Applied → Followed up'}); j.status = 'Followed up'; } j.followUpDate = addDays(today(), +S.settings.followDays); save(); toast(`Nice. Next nudge ${rel(j.followUpDate)}`); },
+  'job-snooze': el => { const j = job(el.dataset.id); j.followUpDate = addDays(today(), 3); save(); toast('Snoozed 3 days'); },
+  'job-ghost': el => { const j = job(el.dataset.id); applyStatus(j, 'Ghosted', j.status); j.status = 'Ghosted'; save(); toast('Moved to Ghosted — onward!'); },
+  'iv-sent': el => { S.interviews.find(i => i.id === el.dataset.id).thankYouSent = true; save(); toast('Thank-you logged'); },
+  'chat-requested': el => { const c = S.chats.find(x => x.id === el.dataset.id); c.status = 'Requested'; c.followUpDate = addDays(today(), 5); save(); toast('Reminder set to follow up in 5 days'); },
+  'chat-nudged': el => { const c = S.chats.find(x => x.id === el.dataset.id); c.followUpDate = addDays(today(), 7); save(); toast('Next nudge in a week'); },
+  'chat-done': el => { const c = S.chats.find(x => x.id === el.dataset.id); c.status = 'Done'; c.followUpDate = ''; save(); openForm('chat', c.id); },
+  'chat-sent': el => { S.chats.find(x => x.id === el.dataset.id).thankYouSent = true; save(); toast('Thank-you logged'); },
+  'sample': () => { loadSample(); save(); toast('Sample data loaded'); },
+  'export': () => download(`job-tracker-backup-${today()}.json`, JSON.stringify(S, null, 2), 'application/json'),
+  'csv': () => {
+    const cols = ['company','role','channel','type','source','status','appliedDate','followUpDate','location','salary','contactName','contactEmail','contactPhone','url','notes'];
+    const q = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
+    download(`applications-${today()}.csv`, [cols.join(','), ...S.jobs.map(j => cols.map(c => q(j[c])).join(','))].join('\n'), 'text/csv');
+  },
+  'ics': () => { const n = buildICS(); n ? toast(`${n} reminders exported`) : toast('Nothing upcoming to export yet'); },
+  'wipe': () => { if (confirm('Delete ALL applications, interviews and coffee chats? Export a backup first if you might want them.')) { S = {...structuredClone(DEFAULTS), settings: S.settings}; save(); toast('All data deleted'); } }
+};
+
+document.addEventListener('click', e => {
+  const tabBtn = e.target.closest('[data-tab]');
+  if (tabBtn) { tab = tabBtn.dataset.tab; try { localStorage.setItem(TAB_KEY, tab); } catch(_){} render(); window.scrollTo(0,0); return; }
+  const chip = e.target.closest('[data-chip]');
+  if (chip) { F.status = chip.dataset.chip; renderJobList(); return; }
+  if (e.target.closest('[data-stop]')) return;
+  const el = e.target.closest('[data-act]');
+  if (el && ACTIONS[el.dataset.act]) { if (el.tagName === 'A' && el.getAttribute('href') === '#') e.preventDefault(); ACTIONS[el.dataset.act](el); }
+});
+document.addEventListener('input', e => { if (e.target.id === 'q') { F.q = e.target.value; renderJobList(); } });
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'fchannel') { F.channel = t.value; renderJobList(); }
+  if (t.dataset.statusFor) { const j = job(t.dataset.statusFor); const prev = j.status; j.status = t.value; applyStatus(j, t.value, prev); save(); toast(`${j.company}: ${t.value}`); }
+  if (t.id === 'importFile' && t.files[0]) {
+    t.files[0].text().then(txt => {
+      const d = JSON.parse(txt);
+      if (!Array.isArray(d.jobs)) throw new Error('bad file');
+      if (!confirm(`Replace current data with this backup (${d.jobs.length} applications)?`)) return;
+      S = {...structuredClone(DEFAULTS), ...d, settings: {...DEFAULTS.settings, ...(d.settings||{})}}; save(); toast('Backup imported');
+    }).catch(() => toast('That file is not a valid backup'));
+  }
+});
+document.addEventListener('submit', e => {
+  if (e.target.id === 'quick') {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const j = {id: uid(), created: new Date().toISOString(), company: fd.get('company').trim(), role: fd.get('role').trim(), channel: fd.get('channel'), source: fd.get('channel') === 'NUworks' ? 'NUworks' : 'LinkedIn', type: 'Co-op', status: 'Applied', appliedDate: today(), followUpDate: '', history: []};
+    applyStatus(j, 'Applied', null);
+    S.jobs.push(j); save(); toast(`Logged ${j.company} — follow-up reminder ${rel(j.followUpDate)}`);
+    setTimeout(() => document.querySelector('#quick [name=company]')?.focus(), 0);
+  }
+  if (e.target.id === 'settings') {
+    e.preventDefault();
+    const fd = new FormData(e.target), s = S.settings;
+    s.name = fd.get('name').trim(); s.school = fd.get('school').trim() || DEFAULTS.settings.school;
+    s.goal = Math.max(1, +fd.get('goal') || 1); s.followDays = Math.max(1, +fd.get('followDays') || 7); s.staleDays = Math.max(7, +fd.get('staleDays') || 30);
+    s.notify = fd.has('notify');
+    if (s.notify && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+    save(); toast('Settings saved');
+  }
+});
+
+/* ---------- files ---------- */
+function download(name, text, type){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type}));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function buildICS(){
+  const ie = s => String(s||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n');
+  const dt = d => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+  const stamp = new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
+  const L = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Rallo HQ//Job Tracker//EN','CALSCALE:GREGORIAN'];
+  let n = 0;
+  const ev = (id, start, end, allDay, summary, desc, alarm) => {
+    n++;
+    L.push('BEGIN:VEVENT', `UID:${id}@rallo-jobs`, `DTSTAMP:${stamp}`,
+      allDay ? `DTSTART;VALUE=DATE:${start}` : `DTSTART:${start}`, allDay ? `DTEND;VALUE=DATE:${end}` : `DTEND:${end}`,
+      `SUMMARY:${ie(summary)}`, `DESCRIPTION:${ie(desc)}`, 'BEGIN:VALARM','ACTION:DISPLAY', `DESCRIPTION:${ie(summary)}`, `TRIGGER:${alarm}`, 'END:VALARM', 'END:VEVENT');
+  };
+  const t = today();
+  S.jobs.forEach(j => { if (j.followUpDate && j.followUpDate >= t && !CLOSED.includes(j.status))
+    ev('fu-' + j.id + '-' + j.followUpDate, j.followUpDate.replace(/-/g,''), addDays(j.followUpDate,1).replace(/-/g,''), true,
+      `Follow up: ${j.company} (${j.role})`, `Email or call to check on your application.${j.contactName ? '\nContact: ' + j.contactName : ''}${j.contactEmail ? ' ' + j.contactEmail : ''}${j.contactPhone ? ' ' + j.contactPhone : ''}`, 'PT9H'); });
+  S.interviews.forEach(iv => { if (iv.date && iv.date.slice(0,10) >= t) { const s = parseD(iv.date), e = new Date(s.getTime() + 60*60e3), j = job(iv.jobId);
+    ev('iv-' + iv.id, dt(s), dt(e), false, `Interview: ${j ? j.company : ''} — ${iv.round || ''}`, `${j ? j.role : ''}\n${iv.interviewer ? 'With ' + iv.interviewer + '\n' : ''}${iv.link || ''}\n\n${iv.prep || ''}`, '-PT1H'); } });
+  S.chats.forEach(c => { if (c.date && c.status === 'Scheduled' && c.date.slice(0,10) >= t) { const s = parseD(c.date), e = new Date(s.getTime() + 30*60e3);
+    ev('cc-' + c.id, dt(s), dt(e), false, `Coffee chat: ${c.person}${c.company ? ' (' + c.company + ')' : ''}`, c.notes || '', '-PT30M'); }
+    if (c.followUpDate && c.followUpDate >= t && c.status !== 'Done')
+      ev('ccf-' + c.id + '-' + c.followUpDate, c.followUpDate.replace(/-/g,''), addDays(c.followUpDate,1).replace(/-/g,''), true, `Follow up with ${c.person}`, c.company || '', 'PT9H'); });
+  L.push('END:VCALENDAR');
+  if (n) download(`job-reminders-${t}.ics`, L.join('\r\n'), 'text/calendar');
+  return n;
+}
+
+/* ---------- sample data ---------- */
+function loadSample(){
+  const t = today(), now = new Date();
+  const at = (days, h) => { const d = new Date(now); d.setDate(d.getDate()+days); d.setHours(h,0,0,0); return `${ymd(d)}T${pad(h)}:00`; };
+  const mk = (company, role, channel, status, ago, extra={}) => ({id: uid(), created: new Date().toISOString(), company, role, channel, source: channel === 'NUworks' ? 'NUworks' : 'LinkedIn', type: 'Co-op', status, appliedDate: addDays(t, -ago), followUpDate: '', history: [{d: addDays(t,-ago), t: 'Added as Applied'}], ...extra});
+  const a = mk('Wayfair','Marketing Co-op','NUworks','Applied',9,{contactName:'Jordan Lee', contactEmail:'jordan@example.com', location:'Boston, MA'});
+  const b = mk('HubSpot','Product Marketing Intern','Outside NU','Interviewing',14,{location:'Cambridge, MA'});
+  const c = mk('Fidelity','Business Analyst Co-op','NUworks','Applied',1,{location:'Boston, MA'});
+  const d = mk('Glossier','Brand Intern','Outside NU','Ghosted',40,{location:'New York, NY'});
+  const e = mk('Vogue (Condé Nast)','Editorial Intern','Outside NU','Saved',0,{appliedDate:'', location:'New York, NY'});
+  [a,b,c].forEach(j => j.followUpDate = addDays(j.appliedDate, +S.settings.followDays));
+  S.jobs.push(a,b,c,d,e);
+  S.interviews.push({id: uid(), jobId: b.id, date: at(3,14), round:'Behavioral', format:'Video', outcome:'Pending', interviewer:'Sam Patel', link:'', prep:'Tell me about yourself\nWhy HubSpot?\nStory: campus club campaign', thankYouSent:false},
+                    {id: uid(), jobId: b.id, date: at(-4,11), round:'Phone screen', format:'Phone', outcome:'Moved forward', interviewer:'Riley (recruiter)', prep:'', thankYouSent:true});
+  S.chats.push({id: uid(), person:'Alex Kim', company:'Wayfair', title:'Brand Manager', how:'Northeastern alum', status:'To reach out', email:'', jobId:a.id},
+               {id: uid(), person:'Morgan Diaz', company:'HubSpot', title:'PMM', how:'LinkedIn', status:'Scheduled', date: at(2,10)},
+               {id: uid(), person:'Taylor Brooks', company:'Fidelity', title:'Analyst', how:'Co-op connection', status:'Done', date: at(-1,15), thankYouSent:false});
+}
+
+/* ---------- boot ---------- */
+render();
+try {
+  const due = dueItems().length;
+  if (S.settings.notify && due && 'Notification' in window && Notification.permission === 'granted')
+    new Notification('Rallo Jobs', {body: `You have ${due} follow-up${due>1?'s':''} / thank-you${due>1?'s':''} to do today.`});
+} catch(e) {}
+</script>
+</body>
+</html>
