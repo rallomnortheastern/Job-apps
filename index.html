@@ -146,6 +146,7 @@ dialog::backdrop{background:rgba(42,21,32,.45)}
 .hist li span{color:var(--muted);min-width:56px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:13px;opacity:0;transition:all .25s;pointer-events:none;z-index:100;max-width:calc(100vw - 32px)}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.sync{font-size:11px;color:var(--muted)}
 .warnbar{background:var(--warn-soft);color:var(--warn);padding:10px 14px;border-radius:10px;margin-bottom:16px;font-size:13px}
 
 @media (max-width:820px){
@@ -173,13 +174,14 @@ dialog::backdrop{background:rgba(42,21,32,.45)}
   <div class="wrap">
     <div class="top">
       <a class="brand" href="index.html">Rallo <em>Jobs</em></a>
-      <button class="btn primary sm" data-act="new-job">+ Application</button>
+      <span class="row"><span class="sync" id="sync"></span><button class="btn primary sm" data-act="new-job">+ Application</button></span>
     </div>
     <nav class="tabs" role="tablist" id="tabs"></nav>
   </div>
 </header>
 <main class="wrap" id="main"></main>
 <dialog id="dlg"></dialog>
+<dialog id="cfm"></dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -206,8 +208,67 @@ function load(){
 }
 function save(){
   try { localStorage.setItem(KEY, JSON.stringify(S)); storageOK = true; }
-  catch(e) { storageOK = false; toast('Could not save in this browser — export a backup in Settings'); }
+  catch(e) { storageOK = false; if (!CLOUD.on) toast('Could not save in this browser — export a backup in Settings'); }
   render();
+  cloudQueue();
+}
+
+/* ---------- account sync (when opened as a claude.ai page) ---------- */
+const PARTS = ['settings','jobs','interviews','chats'];
+const CLOUD = {on:false, db:null, base:'', last:{}, timer:null, busy:false, dirty:false, downloads:null};
+function setSync(txt){ const el = $('#sync'); if (el) el.textContent = txt; }
+function partData(k){ return k === 'settings' ? {...S.settings} : {items: S[k]}; }
+function cloudQueue(){
+  if (!CLOUD.on) return;
+  CLOUD.dirty = true; setSync('Saving…');
+  clearTimeout(CLOUD.timer); CLOUD.timer = setTimeout(cloudFlush, 600);
+}
+async function cloudFlush(){
+  if (CLOUD.busy) { CLOUD.timer = setTimeout(cloudFlush, 400); return; }
+  CLOUD.busy = true; CLOUD.dirty = false;
+  try {
+    for (const k of PARTS) {
+      const d = partData(k), js = JSON.stringify(d);
+      if (CLOUD.last[k] === js) continue;
+      await CLOUD.db.doc(CLOUD.base + k).set(d);
+      CLOUD.last[k] = js;
+    }
+    if (!CLOUD.dirty) setSync('Saved to your account ✓');
+  } catch(e) { setSync('Not saved — check connection'); toast('Could not save to your account. Try again in a moment.'); }
+  CLOUD.busy = false;
+}
+async function cloudPull(){
+  const snaps = await Promise.all(PARTS.map(k => CLOUD.db.doc(CLOUD.base + k).get()));
+  if (!snaps.some(s => s.exists)) return false;
+  const next = structuredClone(DEFAULTS);
+  snaps.forEach((s, i) => {
+    const k = PARTS[i]; if (!s.exists) return;
+    const d = s.data(); CLOUD.last[k] = JSON.stringify(d);
+    if (k === 'settings') next.settings = {...DEFAULTS.settings, ...d}; else next[k] = Array.isArray(d.items) ? structuredClone(d.items) : [];
+  });
+  S = next;
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {}
+  return true;
+}
+async function cloudInit(){
+  if (!window.claude || typeof window.claude.use !== 'function') return;
+  claude.use('downloads').then(d => { CLOUD.downloads = d; }).catch(() => {});
+  try {
+    const [db, user] = await Promise.all([claude.use('db'), claude.use('user')]);
+    if (!db || !user) return;
+    const id = await user.id(); if (!id) return;
+    CLOUD.db = db; CLOUD.base = `data/users/${id}/`;
+    setSync('Loading…');
+    const had = await cloudPull();
+    CLOUD.on = true;
+    if (!had && (S.jobs.length || S.interviews.length || S.chats.length || S.settings.name)) cloudQueue();
+    else setSync('Saved to your account ✓');
+    render();
+    window.addEventListener('focus', async () => {
+      if (CLOUD.busy || CLOUD.dirty || $('#dlg').open) return;
+      try { if (await cloudPull()) render(); } catch(e) {}
+    });
+  } catch(e) { setSync(''); }
 }
 
 /* ---------- helpers ---------- */
@@ -306,29 +367,29 @@ function dueItems(){
       const stale = WAITING.includes(j.status) && age >= +S.settings.staleDays;
       out.push({sort: j.followUpDate, kind: 'Follow up', title: jobLabel(j),
         sub: `${j.status}${j.appliedDate ? ' · applied ' + rel(j.appliedDate) : ''}${j.contactName ? ' · ' + j.contactName : ''} · <span class="${j.followUpDate < t ? 'over' : ''}">due ${rel(j.followUpDate)}</span>${stale ? ' · no reply in ' + age + ' days' : ''}`,
-        acts: `<a class="btn sm" href="${T.followUp(j)}">Email</a>${j.contactPhone ? `<a class="btn sm" href="tel:${esc(j.contactPhone)}">Call</a>` : ''}<button class="btn sm primary" data-act="job-done" data-id="${j.id}">Followed up ✓</button><button class="btn sm" data-act="job-snooze" data-id="${j.id}">+3 days</button>${stale ? `<button class="btn sm" data-act="job-ghost" data-id="${j.id}">Mark ghosted</button>` : ''}`});
+        acts: `<a class="btn sm" target="_blank" rel="noopener" href="${T.followUp(j)}">Email</a>${j.contactPhone ? `<a class="btn sm" target="_blank" href="tel:${esc(j.contactPhone)}">Call</a>` : ''}<button class="btn sm primary" data-act="job-done" data-id="${j.id}">Followed up ✓</button><button class="btn sm" data-act="job-snooze" data-id="${j.id}">+3 days</button>${stale ? `<button class="btn sm" data-act="job-ghost" data-id="${j.id}">Mark ghosted</button>` : ''}`});
     }
   });
   S.interviews.forEach(iv => {
     if (!iv.date || iv.thankYouSent || parseD(iv.date) > new Date() || dayDiff(iv.date) < -10) return;
     out.push({sort: iv.date.slice(0,10), kind: 'Thank-you note', title: jobLabel(job(iv.jobId)) || 'Interview',
       sub: `${iv.round || 'Interview'}${iv.interviewer ? ' with ' + iv.interviewer : ''} · ${rel(iv.date)} — send within 24 hours`,
-      acts: `<a class="btn sm" href="${T.ivThanks(iv)}">Email thank-you</a><button class="btn sm primary" data-act="iv-sent" data-id="${iv.id}">Sent ✓</button>`});
+      acts: `<a class="btn sm" target="_blank" rel="noopener" href="${T.ivThanks(iv)}">Email thank-you</a><button class="btn sm primary" data-act="iv-sent" data-id="${iv.id}">Sent ✓</button>`});
   });
   S.chats.forEach(c => {
     const who = `${c.person}${c.company ? ' · ' + c.company : ''}`;
     if (c.status === 'To reach out') {
       out.push({sort: c.followUpDate || '0', kind: 'Reach out', title: who, sub: `${c.how || 'Networking'}${c.title ? ' · ' + c.title : ''}`,
-        acts: `<a class="btn sm" href="${T.chatAsk(c)}">Email ask</a>${c.linkedin ? `<a class="btn sm" href="${esc(c.linkedin)}" target="_blank" rel="noopener">LinkedIn</a>` : ''}<button class="btn sm primary" data-act="chat-requested" data-id="${c.id}">Sent ✓</button>`});
+        acts: `<a class="btn sm" target="_blank" rel="noopener" href="${T.chatAsk(c)}">Email ask</a>${c.linkedin ? `<a class="btn sm" href="${esc(c.linkedin)}" target="_blank" rel="noopener">LinkedIn</a>` : ''}<button class="btn sm primary" data-act="chat-requested" data-id="${c.id}">Sent ✓</button>`});
     } else if (c.status === 'Done' && !c.thankYouSent) {
       out.push({sort: (c.date||'').slice(0,10), kind: 'Thank-you note', title: who, sub: `Coffee chat ${c.date ? rel(c.date) : ''}`,
-        acts: `<a class="btn sm" href="${T.chatThanks(c)}">Email thank-you</a><button class="btn sm primary" data-act="chat-sent" data-id="${c.id}">Sent ✓</button>`});
+        acts: `<a class="btn sm" target="_blank" rel="noopener" href="${T.chatThanks(c)}">Email thank-you</a><button class="btn sm primary" data-act="chat-sent" data-id="${c.id}">Sent ✓</button>`});
     } else if (c.status === 'Scheduled' && c.date && parseD(c.date) < new Date()) {
       out.push({sort: c.date.slice(0,10), kind: 'How did it go?', title: who, sub: `Chat was ${rel(c.date)} — mark it done and add notes`,
         acts: `<button class="btn sm primary" data-act="chat-done" data-id="${c.id}">Mark done</button><button class="btn sm" data-act="edit-chat" data-id="${c.id}">Add notes</button>`});
     } else if (c.followUpDate && c.followUpDate <= today() && c.status !== 'Done') {
       out.push({sort: c.followUpDate, kind: 'Follow up', title: who, sub: `${c.status} · <span class="${c.followUpDate < t ? 'over' : ''}">due ${rel(c.followUpDate)}</span>`,
-        acts: `<a class="btn sm" href="${T.chatNudge(c)}">Email nudge</a><button class="btn sm primary" data-act="chat-nudged" data-id="${c.id}">Followed up ✓</button><button class="btn sm" data-act="edit-chat" data-id="${c.id}">Schedule</button>`});
+        acts: `<a class="btn sm" target="_blank" rel="noopener" href="${T.chatNudge(c)}">Email nudge</a><button class="btn sm primary" data-act="chat-nudged" data-id="${c.id}">Followed up ✓</button><button class="btn sm" data-act="edit-chat" data-id="${c.id}">Schedule</button>`});
     }
   });
   return out.sort((a,b) => a.sort.localeCompare(b.sort));
@@ -345,7 +406,7 @@ function render(){
   const due = dueItems().length;
   const tabs = [['today','Today', due], ['jobs','Applications', S.jobs.filter(j => !CLOSED.includes(j.status)).length], ['interviews','Interviews'], ['chats','Coffee chats'], ['settings','Settings']];
   $('#tabs').innerHTML = tabs.map(([k,l,n]) => `<button class="tab" role="tab" aria-selected="${tab===k}" data-tab="${k}">${l}${n ? `<span class="pill">${n}</span>` : ''}</button>`).join('');
-  const warn = storageOK ? '' : `<div class="warnbar">This browser isn't saving data (private window or blocked storage). Use Settings → Export backup before closing.</div>`;
+  const warn = storageOK || CLOUD.on ? '' : `<div class="warnbar">This browser isn't saving data (private window or blocked storage). Use Settings → Export backup before closing.</div>`;
   $('#main').innerHTML = warn + ({today: viewToday, jobs: viewJobs, interviews: viewInterviews, chats: viewChats, settings: viewSettings}[tab] || viewToday)();
   if (tab === 'jobs') renderJobList();
 }
@@ -382,7 +443,7 @@ function viewToday(){
     </div>
     <div class="card">
       <h2 style="margin-top:0">Coming up <small>next 14 days</small></h2>
-      ${up.length ? up.map(u => `<div class="item"><div><div class="kind">${u.kind}</div><div class="t">${esc(u.title)}</div><div class="s">${fmtDT(u.date)}${u.sub ? ' · ' + esc(u.sub) : ''}</div></div><div class="acts"><button class="btn sm" data-act="${u.act}" data-id="${u.id}">Open</button></div></div>`).join('') : `<p class="muted">No interviews or coffee chats scheduled.</p>`}
+      ${up.length ? up.map(u => `<div class="item"><div><div class="kind">${u.kind}</div><div class="t">${esc(u.title)}</div><div class="s">${fmtDT(u.date)}${u.sub ? ' · ' + esc(u.sub) : ''}</div></div><div class="acts">${calBtn(u.kind + ': ' + u.title, u.date, minutesLater(u.date, u.kind === 'Interview' ? 60 : 30), u.sub)}<button class="btn sm" data-act="${u.act}" data-id="${u.id}">Open</button></div></div>`).join('') : `<p class="muted">No interviews or coffee chats scheduled.</p>`}
     </div>
   </div>
   <div class="stats">
@@ -437,6 +498,7 @@ function renderJobList(){
         </div>
       </div>
       <div class="side">
+        ${j.followUpDate && !CLOSED.includes(j.status) && j.followUpDate >= today() ? calBtn(`Follow up: ${j.company} (${j.role})`, j.followUpDate, addDays(j.followUpDate, 1), `Email or call to check on your application.${j.contactName ? ' Contact: ' + j.contactName : ''}`) : ''}
         <select data-status-for="${j.id}" aria-label="Status for ${esc(j.company)}" data-stop>${STATUSES.map(s => `<option ${s===j.status?'selected':''}>${s}</option>`).join('')}</select>
         ${badge(j.status, STATUS_CLASS[j.status])}
       </div>
@@ -461,6 +523,7 @@ function viewInterviews(){
         ${iv.prep ? `<div class="muted" style="font-size:13px;margin-top:6px;white-space:pre-line">${esc(iv.prep.slice(0,180))}${iv.prep.length>180?'…':''}</div>` : ''}
       </div>
       <div class="side">
+        ${iv.date && parseD(iv.date) >= now ? calBtn(`Interview: ${j ? j.company : ''} — ${iv.round || ''}`, iv.date, minutesLater(iv.date, 60), [j && j.role, iv.interviewer && 'With ' + iv.interviewer, iv.link, iv.prep].filter(Boolean).join('\n')) : ''}
         ${badge(iv.outcome || 'Pending', iv.outcome === 'Moved forward' ? 'b-ok' : iv.outcome === 'Rejected' ? 'b-bad' : '')}
         ${iv.date && parseD(iv.date) < now ? badge(iv.thankYouSent ? 'Thank-you sent' : 'Thank-you not sent', iv.thankYouSent ? 'b-ok' : 'b-progress') : ''}
       </div>
@@ -481,6 +544,7 @@ function viewChats(){
       <div class="meta">
         ${c.how ? badge(c.how) : ''}
         ${c.date ? `<span>${fmtDT(c.date)}</span>` : ''}
+        ${c.status === 'Scheduled' && c.date && parseD(c.date) >= new Date() ? calBtn(`Coffee chat: ${c.person}${c.company ? ' (' + c.company + ')' : ''}`, c.date, minutesLater(c.date, 30), c.notes) : ''}
         ${c.followUpDate && c.status !== 'Done' ? `<span class="${c.followUpDate < today() ? 'over' : ''}">Follow up ${rel(c.followUpDate)}</span>` : ''}
         ${c.status === 'Done' ? badge(c.thankYouSent ? 'Thanked' : 'Send thank-you', c.thankYouSent ? 'b-ok' : 'b-progress') : ''}
       </div>
@@ -495,7 +559,7 @@ function viewSettings(){
   const s = S.settings;
   return `
   <h1>Settings</h1>
-  <p class="sub">Your data lives in this browser. Export a backup now and then — or to move to another device.</p>
+  <p class="sub">${CLOUD.on ? 'Your data is saved to your Claude account — open this same link on your phone or laptop and it is all there.' : 'Your data lives in this browser. Export a backup now and then — or to move to another device.'}</p>
   <form class="card form" id="settings">
     <div class="fld"><label for="s_name">Your name (used in email templates)</label><input type="text" id="s_name" name="name" value="${esc(s.name)}"></div>
     <div class="fld"><label for="s_school">School</label><input type="text" id="s_school" name="school" value="${esc(s.school)}"></div>
@@ -506,8 +570,8 @@ function viewSettings(){
     <div class="fld full"><button class="btn primary" style="justify-self:start;width:max-content">Save settings</button></div>
   </form>
   <h2>Calendar reminders</h2>
-  <div class="card"><p class="muted" style="margin-bottom:10px">Download an .ics file with every follow-up date, interview and coffee chat (with alerts), then open it to add them to Google Calendar, Outlook or Apple Calendar. Re-download after you add new items.</p>
-    <button class="btn" data-act="ics">Download calendar file</button></div>
+  ${CLOUD.downloads ? `<div class="card"><p class="muted">Tap the 📅 button on any interview, coffee chat or application to add it to Google Calendar with a reminder.</p></div>` : `<div class="card"><p class="muted" style="margin-bottom:10px">Download an .ics file with every follow-up date, interview and coffee chat (with alerts), then open it to add them to Google Calendar, Outlook or Apple Calendar. Re-download after you add new items.</p>
+    <button class="btn" data-act="ics">Download calendar file</button> <span class="muted" style="font-size:12px">Or tap 📅 on any item.</span></div>`}
   <h2>Backup</h2>
   <div class="card row">
     <button class="btn" data-act="export">Export backup (.json)</button>
@@ -627,9 +691,9 @@ const ACTIONS = {
   'edit-iv': el => openForm('iv', el.dataset.id),
   'edit-chat': el => openForm('chat', el.dataset.id),
   'close': () => $('#dlg').close(),
-  'delete': el => {
+  'delete': async el => {
     const {kind, id} = el.dataset, list = FORMS[kind].list;
-    if (!confirm('Delete this ' + FORMS[kind].title.toLowerCase() + '?')) return;
+    if (!await ask('Delete this ' + FORMS[kind].title.toLowerCase() + '?')) return;
     S[list] = S[list].filter(x => x.id !== id);
     if (kind === 'job') { S.interviews = S.interviews.filter(i => i.jobId !== id); S.chats.forEach(c => { if (c.jobId === id) c.jobId = ''; }); }
     $('#dlg').close(); save(); toast('Deleted');
@@ -650,7 +714,7 @@ const ACTIONS = {
     download(`applications-${today()}.csv`, [cols.join(','), ...S.jobs.map(j => cols.map(c => q(j[c])).join(','))].join('\n'), 'text/csv');
   },
   'ics': () => { const n = buildICS(); n ? toast(`${n} reminders exported`) : toast('Nothing upcoming to export yet'); },
-  'wipe': () => { if (confirm('Delete ALL applications, interviews and coffee chats? Export a backup first if you might want them.')) { S = {...structuredClone(DEFAULTS), settings: S.settings}; save(); toast('All data deleted'); } }
+  'wipe': async () => { if (await ask('Delete ALL applications, interviews and coffee chats? Export a backup first if you might want them.')) { S = {...structuredClone(DEFAULTS), settings: S.settings}; save(); toast('All data deleted'); } }
 };
 
 document.addEventListener('click', e => {
@@ -668,10 +732,10 @@ document.addEventListener('change', e => {
   if (t.id === 'fchannel') { F.channel = t.value; renderJobList(); }
   if (t.dataset.statusFor) { const j = job(t.dataset.statusFor); const prev = j.status; j.status = t.value; applyStatus(j, t.value, prev); save(); toast(`${j.company}: ${t.value}`); }
   if (t.id === 'importFile' && t.files[0]) {
-    t.files[0].text().then(txt => {
+    t.files[0].text().then(async txt => {
       const d = JSON.parse(txt);
       if (!Array.isArray(d.jobs)) throw new Error('bad file');
-      if (!confirm(`Replace current data with this backup (${d.jobs.length} applications)?`)) return;
+      if (!await ask(`Replace current data with this backup (${d.jobs.length} applications)?`)) return;
       S = {...structuredClone(DEFAULTS), ...d, settings: {...DEFAULTS.settings, ...(d.settings||{})}}; save(); toast('Backup imported');
     }).catch(() => toast('That file is not a valid backup'));
   }
@@ -697,7 +761,27 @@ document.addEventListener('submit', e => {
 });
 
 /* ---------- files ---------- */
-function download(name, text, type){
+function ask(msg){
+  return new Promise(res => {
+    const d = $('#cfm');
+    d.innerHTML = `<div class="dlg-b" style="padding-top:22px"><p style="font-size:15px">${esc(msg)}</p></div><div class="dlg-f" style="justify-content:flex-end"><button class="btn" value="no">Cancel</button><button class="btn primary" value="yes">Yes</button></div>`;
+    d.querySelectorAll('button').forEach(b => b.onclick = () => { d.close(); res(b.value === 'yes'); });
+    d.oncancel = () => res(false);
+    d.showModal();
+  });
+}
+const gcalDate = s => s.replace(/[-:]/g,'').slice(0,15) + (s.length > 10 ? '00' : '');
+function gcal(title, start, end, details){
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${gcalDate(start)}/${gcalDate(end)}&details=${encodeURIComponent(details||'')}`;
+}
+const calBtn = (title, start, end, details) => `<a class="btn sm" target="_blank" rel="noopener" href="${gcal(title, start, end, details)}" data-stop title="Add to Google Calendar">📅</a>`;
+function minutesLater(s, m){ const d = parseD(s); d.setMinutes(d.getMinutes() + m); return `${ymd(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+async function download(name, text, type){
+  if (CLOUD.downloads) {
+    try { await CLOUD.downloads.save({filename: name, data: text}); toast('Saved'); }
+    catch(e) { if (e && e.code !== 'declined') toast('Could not save that file here'); }
+    return;
+  }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], {type}));
   a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -751,6 +835,7 @@ function loadSample(){
 
 /* ---------- boot ---------- */
 render();
+cloudInit();
 try {
   const due = dueItems().length;
   if (S.settings.notify && due && 'Notification' in window && Notification.permission === 'granted')
